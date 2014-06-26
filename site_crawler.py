@@ -88,16 +88,28 @@ class TestSiteCrawler():
 
     def report_failures(self):
         """ makes assertion fail if there had been any kind of failures reported """
-        fail_message = ''
+        result_invalid_urls = 'No invalid URLs detected.\n'
+        result_invalid_images = 'All images were loaded.\n'
+        result_error_links = 'All links return correct status code.\n'
+        report_failure = False
         if len(self.invalid_urls) > 0:
-            fail_message += 'Invalid URLs detected: ' + str(self.invalid_urls) + '\n'
+            report_failure = True
+            result_invalid_urls = 'Invalid URLs detected:\n\n'
+            for item in self.invalid_urls:
+                result_invalid_urls += item[1] + ' (' + item[0] + ')\n'
         if len(self.images_not_loaded) > 0:
-            fail_message += 'Following images were not loaded: ' + str(self.images_not_loaded) + '\n'
+            report_failure = True
+            result_invalid_images = 'Following images were not loaded:\n\n'
+            for item in self.images_not_loaded:
+                result_invalid_images += item[1] + ' (' + item[0] + ')\n'
         if len(self.error_links) > 0:
-            fail_message += 'Following links returned bad status codes: ' + str(self.error_links)
-        if fail_message != '':
-            Assert.fail(fail_message)
-        print 'Visited links: ' + str(self.links_visited)
+            report_failure = True
+            result_error_links = 'Following links returned bad status codes:\n\n'
+            for item in self.error_links:
+                result_error_links += item[1] + ' (' + item[0] + ')\n'
+        result_message = result_invalid_urls + result_error_links + result_invalid_images
+        if report_failure:
+            Assert.fail(result_message)
 
     def is_url_valid(self, url):
         """ checks whether url is valid and whether browser should try to load it """
@@ -118,12 +130,12 @@ class TestSiteCrawler():
         if url_valid:
             for item in self.invalid_chars:
                 if item in url and url not in self.invalid_urls:
-                    self.invalid_urls.append(url)
+                    self.invalid_urls.append([self.driver.title + ' - ' + self.driver.current_url, url])
                     url_valid = False
         # reports empty urls with invalid characters
         if url_valid and url == '':
             if url not in self.invalid_urls:
-                self.invalid_urls.append(url)
+                self.invalid_urls.append([self.driver.title + ' - ' + self.driver.current_url, url])
             url_valid = False
         return url_valid
 
@@ -134,7 +146,7 @@ class TestSiteCrawler():
         try:
             response.raise_for_status()
         except HTTPError:
-            self.error_links.append(url)
+            self.error_links.append([self.driver.title + ' - ' + self.driver.current_url, url])
             is_ok = False
         return is_ok
 
@@ -162,5 +174,6 @@ class TestSiteCrawler():
             image_loaded = bool(self.driver.execute_script(script, image))
             if not image_loaded:
                 if image.get_attribute('src') is not None:
-                    images_not_loaded.append(self.driver.title + ': ' + str(image.get_attribute('src')))
+                    images_not_loaded.append(
+                        [self.driver.title + ' - ' + self.driver.current_url, str(image.get_attribute('src'))])
         return images_not_loaded
