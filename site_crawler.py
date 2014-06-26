@@ -29,8 +29,9 @@ class TestSiteCrawler():
         self.base_url = test_vars.get('base_url')
         self.acceptable_url_substrings = [item for item in test_vars.get('acceptable_url_substrings').split(';')]
         self.invalid_chars = [item for item in test_vars.get('invalid_chars').split(';')]
-        self.ignore_hrefs = [item for item in test_vars.get('ignore_hrefs').split(';')]
+        self.ignore_url_substrings = [item for item in test_vars.get('ignore_url_substrings').split(';')]
         self.image_time_delay = int(test_vars.get('image_time_delay'))
+        self.accept_certs = bool(test_vars.get('accept_ssl_certificates'))
         http_auth_username = test_vars.get('http_auth_username')
         http_auth_password = test_vars.get('http_auth_password')
         if http_auth_username == '' or http_auth_password == '':
@@ -44,8 +45,13 @@ class TestSiteCrawler():
         self.error_links = []
         self.images_not_loaded = []
 
+        # set browser capabilities
+        capabilities = {}
+        if self.accept_certs:
+            capabilities['acceptSslCerts'] = True
+
         # start browser
-        self.driver = webdriver.Firefox()
+        self.driver = webdriver.Chrome(desired_capabilities=capabilities)
         self.driver.get(self.base_url)
 
     def teardown_class(self):
@@ -97,7 +103,7 @@ class TestSiteCrawler():
         """ checks whether url is valid and whether browser should try to load it """
         url_valid = True
         # excludes urls with values not required for testing
-        for invalid_item in self.ignore_hrefs:
+        for invalid_item in self.ignore_url_substrings:
             if invalid_item in url:
                 url_valid = False
         # excludes urls that do not contain acceptable substrings (links leading to different domains)
@@ -123,10 +129,7 @@ class TestSiteCrawler():
 
     def is_link_response_ok(self, url):
         """ checks if request to link does not return invalid error code """
-        if self.http_auth is not None:
-            response = requests.get(url, auth=self.http_auth)
-        else:
-            response = requests.get(url)
+        response = requests.get(url, auth=self.http_auth, verify=(not self.accept_certs))
         is_ok = True
         try:
             response.raise_for_status()
